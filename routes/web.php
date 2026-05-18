@@ -50,6 +50,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('customers', CustomerController::class)->except(['show']);
 
     Route::get('pos/orders/create', [POSOrderController::class, 'index'])->name('pos.orders.create');
+    Route::post('pos/orders/qris', [POSOrderController::class, 'generateQris'])->name('pos.orders.qris');
+    Route::get('pos/orders/qris/{intent}', [POSOrderController::class, 'qrisStatus'])->name('pos.orders.qris.status');
     Route::post('pos/orders', [POSOrderController::class, 'store'])->name('pos.orders.store');
     Route::get('orders/{order}/invoice', [OrderController::class, 'invoice'])->name('orders.invoice');
     Route::post('orders/{order}/payments/cash', [PaymentController::class, 'payCash'])->name('orders.payments.cash');

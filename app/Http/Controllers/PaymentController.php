@@ -97,7 +97,7 @@ class PaymentController extends Controller
         ActivityLogger $logger,
     ): JsonResponse|RedirectResponse {
         $settings = BusinessSettings::current();
-        abort_if(blank($settings->midtrans_server_key), 422, 'Midtrans server key is not configured.');
+        abort_if(blank(BusinessSettings::midtransServerKey($settings)), 422, 'Midtrans server key is not configured.');
 
         $payment = DB::transaction(function () use ($order, $request, $midtrans, $settings, $logger): Payment {
             $lockedOrder = Order::query()

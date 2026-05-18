@@ -152,6 +152,7 @@ test('qris generation deactivates previous pending payment and stores midtrans r
 
 test('valid midtrans webhook marks active qris payment paid', function () {
     $serverKey = 'server-key';
+    config(['services.midtrans.server_key' => $serverKey]);
     BusinessSetting::query()->create([
         'business_name' => 'Bersih Laundry',
         'midtrans_server_key' => $serverKey,
@@ -189,6 +190,7 @@ test('valid midtrans webhook marks active qris payment paid', function () {
 });
 
 test('invalid midtrans signature is logged without changing payment', function () {
+    config(['services.midtrans.server_key' => 'server-key']);
     BusinessSetting::query()->create([
         'business_name' => 'Bersih Laundry',
         'midtrans_server_key' => 'server-key',
@@ -221,6 +223,7 @@ test('invalid midtrans signature is logged without changing payment', function (
 
 test('late qris webhook after cash payment is marked conflict', function () {
     $serverKey = 'server-key';
+    config(['services.midtrans.server_key' => $serverKey]);
     BusinessSetting::query()->create([
         'business_name' => 'Bersih Laundry',
         'midtrans_server_key' => $serverKey,

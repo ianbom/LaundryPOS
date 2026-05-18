@@ -13,7 +13,8 @@ class StorePOSOrderRequest extends FormRequest
     public function authorize(): bool
     {
         return $this->integer('outlet_id') > 0
-            && OutletAccess::canManageOrders($this->user(), $this->integer('outlet_id'));
+            && OutletAccess::canManageOrders($this->user(), $this->integer('outlet_id'))
+            && OutletAccess::canManagePayments($this->user(), $this->integer('outlet_id'));
     }
 
     /**
@@ -47,6 +48,8 @@ class StorePOSOrderRequest extends FormRequest
             'discount_amount' => ['nullable', 'numeric', 'min:0'],
             'additional_fee' => ['nullable', 'numeric', 'min:0'],
             'delivery_fee' => ['nullable', 'numeric', 'min:0'],
+            'payment_method' => ['required', Rule::in(['cash', 'qris'])],
+            'amount_paid' => ['nullable', 'required_if:payment_method,cash', 'numeric', 'min:0'],
             'customer_notes' => ['nullable', 'string'],
             'internal_notes' => ['nullable', 'string'],
             'estimated_done_at' => ['nullable', 'date'],

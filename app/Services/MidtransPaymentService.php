@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\BusinessSetting;
 use App\Models\Order;
+use App\Support\BusinessSettings;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Arr;
 
@@ -16,7 +17,24 @@ class MidtransPaymentService
      */
     public function createQrisCharge(Order $order, BusinessSetting $settings, string $providerOrderId): array
     {
-        $endpoint = $settings->midtrans_is_production
+        return $this->createQrisChargePayload(
+            amount: (float) $order->grand_total,
+            customerName: $order->customer?->name,
+            customerPhone: $order->customer?->whatsapp_number ?? $order->customer?->phone,
+            settings: $settings,
+            providerOrderId: $providerOrderId,
+        );
+    }
+
+    public function createQrisChargePayload(
+        float $amount,
+        ?string $customerName,
+        ?string $customerPhone,
+        BusinessSetting $settings,
+        string $providerOrderId,
+    ): array {
+        $serverKey = BusinessSettings::midtransServerKey($settings);
+        $endpoint = BusinessSettings::midtransIsProduction($settings)
             ? 'https://api.midtrans.com/v2/charge'
             : 'https://api.sandbox.midtrans.com/v2/charge';
 
@@ -24,11 +42,11 @@ class MidtransPaymentService
             'payment_type' => 'qris',
             'transaction_details' => [
                 'order_id' => $providerOrderId,
-                'gross_amount' => (int) round((float) $order->grand_total),
+                'gross_amount' => (int) round($amount),
             ],
             'customer_details' => [
-                'first_name' => $order->customer?->name,
-                'phone' => $order->customer?->whatsapp_number ?? $order->customer?->phone,
+                'first_name' => $customerName,
+                'phone' => $customerPhone,
             ],
             'qris' => [
                 'acquirer' => 'gopay',
@@ -36,7 +54,8 @@ class MidtransPaymentService
         ];
 
         return $this->http
-            ->withBasicAuth((string) $settings->midtrans_server_key, '')
+            ->withBasicAuth((string) $serverKey, '')
+            ->withOptions(['proxy' => config('services.midtrans.proxy', '')])
             ->acceptJson()
             ->asJson()
             ->timeout(15)

@@ -54,15 +54,16 @@ class FonnteWhatsAppService
         }
 
         $settings = BusinessSettings::current();
+        $apiKey = BusinessSettings::fonnteApiKey($settings);
 
-        if ($settings->whatsapp_provider !== 'fonnte' || blank($settings->whatsapp_api_key)) {
+        if (($settings->whatsapp_provider ?? 'fonnte') !== 'fonnte' || blank($apiKey)) {
             return $this->markFailed($message, 'Fonnte WhatsApp configuration is incomplete.');
         }
 
         try {
             $response = $this->http
                 ->asForm()
-                ->withHeaders(['Authorization' => $settings->whatsapp_api_key])
+                ->withHeaders(['Authorization' => $apiKey])
                 ->timeout(10)
                 ->post('https://api.fonnte.com/send', [
                     'target' => $message->phone,

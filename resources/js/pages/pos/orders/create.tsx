@@ -1,16 +1,19 @@
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Plus, Save, Trash2, WalletCards } from 'lucide-react';
-import { FormEvent, useMemo, useState } from 'react';
+import {
+    Banknote,
+    Plus,
+    QrCode,
+    Save,
+    Trash2,
+    WalletCards,
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import OrderController from '@/actions/App/Http/Controllers/OrderController';
 import POSOrderController from '@/actions/App/Http/Controllers/POSOrderController';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -73,8 +76,21 @@ type FormPayload = {
     discount_amount: string;
     additional_fee: string;
     delivery_fee: string;
+    payment_method: 'qris' | 'cash';
+    amount_paid: string;
     customer_notes: string;
     internal_notes: string;
+};
+
+type QrisIntent = {
+    intent_id: number;
+    status: string;
+    amount: string;
+    provider_order_id: string;
+    qris_url: string | null;
+    qris_string: string | null;
+    payment_url: string | null;
+    expired_at: string | null;
 };
 
 function money(value: number | string | null | undefined) {
@@ -95,6 +111,10 @@ export default function POSOrderCreate({
     serviceCategories: Category[];
 }) {
     const [customerSearch, setCustomerSearch] = useState('');
+    const [qrisIntent, setQrisIntent] = useState<QrisIntent | null>(null);
+    const [qrisError, setQrisError] = useState<string | null>(null);
+    const [isGeneratingQris, setIsGeneratingQris] = useState(false);
+    const [isCheckingQris, setIsCheckingQris] = useState(false);
     const variants = useMemo(
         () =>
             serviceCategories.flatMap((category) =>
@@ -123,12 +143,16 @@ export default function POSOrderCreate({
         discount_amount: '0',
         additional_fee: '0',
         delivery_fee: '0',
+        payment_method: 'qris',
+        amount_paid: '',
         customer_notes: '',
         internal_notes: '',
     });
 
     const filteredCustomers = customers.filter((customer) => {
-        const value = `${customer.name} ${customer.phone} ${customer.whatsapp_number ?? ''}`.toLowerCase();
+        const value =
+            `${customer.name} ${customer.phone} ${customer.whatsapp_number ?? ''}`.toLowerCase();
+
         return value.includes(customerSearch.toLowerCase());
     });
 
@@ -151,10 +175,87 @@ export default function POSOrderCreate({
             Number(data.delivery_fee || 0),
         0,
     );
+    const amountPaid = Number(data.amount_paid || 0);
+    const changeAmount = Math.max(amountPaid - grandTotal, 0);
 
-    function submit(event: FormEvent) {
+    async function submit(event: FormEvent) {
         event.preventDefault();
+
+        if (data.payment_method === 'qris') {
+            await generateQris();
+            return;
+        }
+
         post(POSOrderController.store.url());
+    }
+
+    async function generateQris() {
+        setIsGeneratingQris(true);
+        setQrisError(null);
+
+        try {
+            const response = await fetch(POSOrderController.generateQris.url(), {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN':
+                        document
+                            .querySelector('meta[name="csrf-token"]')
+                            ?.getAttribute('content') ?? '',
+                },
+                body: JSON.stringify(data),
+            });
+
+            const payload = await response.json();
+
+            if (!response.ok) {
+                const validationMessage = Object.values(payload.errors ?? {})
+                    .flat()
+                    .join(' ');
+
+                setQrisError(
+                    payload.message || validationMessage || 'Gagal membuat QRIS.',
+                );
+                return;
+            }
+
+            setQrisIntent(payload);
+        } catch (error) {
+            setQrisError(
+                error instanceof Error ? error.message : 'Gagal membuat QRIS.',
+            );
+        } finally {
+            setIsGeneratingQris(false);
+        }
+    }
+
+    async function checkQrisStatus() {
+        if (!qrisIntent) {
+            return;
+        }
+
+        setIsCheckingQris(true);
+        setQrisError(null);
+
+        try {
+            const response = await fetch(
+                POSOrderController.qrisStatus.url(qrisIntent.intent_id),
+                {
+                    headers: { Accept: 'application/json' },
+                },
+            );
+            const payload = await response.json();
+
+            if (payload.status === 'paid' && payload.order_url) {
+                window.location.href = payload.order_url;
+                return;
+            }
+
+            setQrisError('Pembayaran belum diterima Midtrans.');
+        } finally {
+            setIsCheckingQris(false);
+        }
     }
 
     function updateItem(index: number, patch: Partial<ItemInput>) {
@@ -185,9 +286,19 @@ export default function POSOrderCreate({
                                 Orders
                             </Link>
                         </Button>
-                        <Button disabled={processing}>
+                        <Button
+                            disabled={
+                                processing ||
+                                isGeneratingQris ||
+                                (data.payment_method === 'qris' && !!qrisIntent)
+                            }
+                        >
                             <Save className="size-4" />
-                            Simpan Order
+                            {data.payment_method === 'qris'
+                                ? qrisIntent
+                                    ? 'QRIS Sudah Dibuat'
+                                    : 'Generate QRIS'
+                                : 'Buat Order Tunai'}
                         </Button>
                     </div>
                 </div>
@@ -195,7 +306,7 @@ export default function POSOrderCreate({
                 <Card className="rounded-[14px] border-slate-200 shadow-[0_4px_12px_rgba(15,23,42,0.06)]">
                     <CardContent className="grid gap-3 pt-6 md:grid-cols-3">
                         <div>
-                            <p className="text-xs font-semibold uppercase text-slate-500">
+                            <p className="text-xs font-semibold text-slate-500 uppercase">
                                 Outlet Aktif
                             </p>
                             <p className="text-lg font-semibold text-slate-900">
@@ -226,8 +337,9 @@ export default function POSOrderCreate({
                                     placeholder="Search customer"
                                 />
                                 <div className="grid gap-2 md:grid-cols-2">
-                                    {filteredCustomers.slice(0, 6).map(
-                                        (customer) => (
+                                    {filteredCustomers
+                                        .slice(0, 6)
+                                        .map((customer) => (
                                             <button
                                                 type="button"
                                                 key={customer.id}
@@ -252,8 +364,7 @@ export default function POSOrderCreate({
                                                         customer.phone}
                                                 </span>
                                             </button>
-                                        ),
-                                    )}
+                                        ))}
                                 </div>
                                 <div className="grid gap-3 md:grid-cols-2">
                                     <Input
@@ -401,7 +512,10 @@ export default function POSOrderCreate({
                                                         setData(
                                                             'items',
                                                             data.items.filter(
-                                                                (_, itemIndex) =>
+                                                                (
+                                                                    _,
+                                                                    itemIndex,
+                                                                ) =>
                                                                     itemIndex !==
                                                                     index,
                                                             ),
@@ -431,7 +545,8 @@ export default function POSOrderCreate({
                                                         '-'}{' '}
                                                     | Min:{' '}
                                                     {preview.variant
-                                                        ?.min_quantity ?? '-'}{' '}
+                                                        ?.min_quantity ??
+                                                        '-'}{' '}
                                                     | Charged:{' '}
                                                     {preview.charged || 0}
                                                 </p>
@@ -479,6 +594,139 @@ export default function POSOrderCreate({
                                     {money(grandTotal)}
                                 </p>
                             </div>
+
+                            <div className="space-y-3 rounded-xl border border-slate-200 p-4">
+                                <div>
+                                    <p className="text-sm font-semibold text-slate-900">
+                                        Metode Pembayaran
+                                    </p>
+                                    <p className="text-xs text-slate-500">
+                                        Pilih sebelum order dibuat. QRIS membuat
+                                        order setelah pembayaran sukses.
+                                    </p>
+                                </div>
+                                <div className="grid gap-2 sm:grid-cols-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setQrisIntent(null);
+                                            setQrisError(null);
+                                            setData('payment_method', 'qris');
+                                        }}
+                                        className={
+                                            data.payment_method === 'qris'
+                                                ? 'rounded-lg border border-blue-500 bg-blue-50 p-3 text-left text-sm text-blue-700'
+                                                : 'rounded-lg border border-slate-200 bg-white p-3 text-left text-sm text-slate-700 hover:bg-slate-50'
+                                        }
+                                    >
+                                        <QrCode className="mb-2 size-5" />
+                                        <span className="block font-semibold">
+                                            QRIS Midtrans
+                                        </span>
+                                        <span className="text-xs">
+                                            QR dinamis muncul sebelum order
+                                            dibuat.
+                                        </span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setQrisIntent(null);
+                                            setQrisError(null);
+                                            setData('payment_method', 'cash');
+                                        }}
+                                        className={
+                                            data.payment_method === 'cash'
+                                                ? 'rounded-lg border border-green-500 bg-green-50 p-3 text-left text-sm text-green-700'
+                                                : 'rounded-lg border border-slate-200 bg-white p-3 text-left text-sm text-slate-700 hover:bg-slate-50'
+                                        }
+                                    >
+                                        <Banknote className="mb-2 size-5" />
+                                        <span className="block font-semibold">
+                                            Tunai
+                                        </span>
+                                        <span className="text-xs">
+                                            Tidak membuat QRIS.
+                                        </span>
+                                    </button>
+                                </div>
+                                <InputError message={errors.payment_method} />
+                            </div>
+
+                            {data.payment_method === 'cash' && (
+                                <div className="space-y-3 rounded-xl border border-green-200 bg-green-50 p-4">
+                                    <MoneyInput
+                                        label="Uang diterima"
+                                        value={data.amount_paid}
+                                        onChange={(value) =>
+                                            setData('amount_paid', value)
+                                        }
+                                    />
+                                    <AmountRow
+                                        label="Kembalian"
+                                        value={changeAmount}
+                                    />
+                                    <InputError message={errors.amount_paid} />
+                                </div>
+                            )}
+
+                            {data.payment_method === 'qris' && !qrisIntent && (
+                                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-700">
+                                    <p className="font-semibold">
+                                        QRIS dibuat sebelum order
+                                    </p>
+                                    <p className="mt-1 text-xs">
+                                        Klik tombol untuk membuat QRIS. Order
+                                        baru dibuat setelah Midtrans mengirim
+                                        status paid.
+                                    </p>
+                                </div>
+                            )}
+
+                            {qrisIntent && (
+                                <div className="space-y-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+                                    <div>
+                                        <p className="font-semibold">
+                                            Scan QRIS untuk bayar
+                                        </p>
+                                        <p className="text-xs">
+                                            Provider order:{' '}
+                                            {qrisIntent.provider_order_id}
+                                        </p>
+                                    </div>
+                                    {qrisIntent.qris_url && (
+                                        <img
+                                            src={qrisIntent.qris_url}
+                                            alt="QRIS Midtrans"
+                                            className="mx-auto size-56 rounded-lg border border-blue-200 bg-white object-contain p-2"
+                                        />
+                                    )}
+                                    {qrisIntent.payment_url && (
+                                        <a
+                                            href={qrisIntent.payment_url}
+                                            target="_blank"
+                                            className="inline-flex font-semibold text-blue-700 underline"
+                                        >
+                                            Buka halaman pembayaran
+                                        </a>
+                                    )}
+                                    <Button
+                                        type="button"
+                                        className="w-full"
+                                        disabled={isCheckingQris}
+                                        onClick={checkQrisStatus}
+                                    >
+                                        Cek Pembayaran & Buka Order
+                                    </Button>
+                                </div>
+                            )}
+
+                            {qrisError && (
+                                <p className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                    {qrisError}
+                                </p>
+                            )}
+
                             <Textarea
                                 value={data.customer_notes}
                                 onChange={(event) =>
@@ -499,13 +747,26 @@ export default function POSOrderCreate({
                                 }
                                 placeholder="Catatan internal"
                             />
-                            <Button className="w-full" disabled={processing}>
+                            <Button
+                                className="w-full"
+                                disabled={
+                                    processing ||
+                                    isGeneratingQris ||
+                                    (data.payment_method === 'qris' &&
+                                        !!qrisIntent)
+                                }
+                            >
                                 <WalletCards className="size-4" />
-                                Simpan Order
+                                {data.payment_method === 'qris'
+                                    ? qrisIntent
+                                        ? 'QRIS Sudah Dibuat'
+                                        : 'Generate QRIS Sebelum Buat Order'
+                                    : 'Buat Order & Konfirmasi Tunai'}
                             </Button>
                             <p className="text-xs text-slate-500">
-                                Cash dan QRIS masuk phase payment berikutnya;
-                                order phase ini disimpan unpaid.
+                                WhatsApp receipt dikirim setelah pembayaran
+                                berhasil: langsung untuk tunai, dan setelah
+                                webhook Midtrans untuk QRIS.
                             </p>
                         </CardContent>
                     </Card>
