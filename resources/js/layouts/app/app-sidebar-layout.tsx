@@ -25,8 +25,10 @@ import {
     UserCog,
     Users,
     WashingMachine,
+    X,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import ActivityLogController from '@/actions/App/Http/Controllers/ActivityLogController';
 import CustomerController from '@/actions/App/Http/Controllers/CustomerController';
 import DashboardController from '@/actions/App/Http/Controllers/DashboardController';
@@ -188,11 +190,23 @@ function LogoMark() {
     );
 }
 
-function SidebarNav() {
+function SidebarNav({
+    mobile = false,
+    onNavigate,
+}: {
+    mobile?: boolean;
+    onNavigate?: () => void;
+}) {
     const { isCurrentUrl } = useCurrentUrl();
 
     return (
-        <aside className="dashboard-sidebar">
+        <aside
+            className={
+                mobile
+                    ? 'flex h-full min-h-0 w-full flex-col bg-white p-3 sm:p-4'
+                    : 'dashboard-sidebar'
+            }
+        >
             <div className="flex h-[42px] items-center gap-3 px-2">
                 <LogoMark />
                 <span className="text-[20px] leading-7 font-bold text-[#0f172a]">
@@ -234,6 +248,7 @@ function SidebarNav() {
                                         key={item.title}
                                         href={item.href}
                                         prefetch
+                                        onClick={onNavigate}
                                         className={[
                                             'flex h-6 items-center gap-2 rounded-md px-2.5 text-[13px] leading-[18px] transition',
                                             isActive
@@ -263,24 +278,95 @@ function SidebarNav() {
 
             <button
                 type="button"
-                className="mt-3 flex h-11 items-center gap-3 rounded-xl border border-[#e2e8f0] bg-white px-3 text-[13px] font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+                onClick={onNavigate}
+                className="mt-3 flex h-11 items-center gap-3 rounded-xl border border-[#e2e8f0] bg-white px-3 text-[13px] font-semibold text-[#334155] transition hover:bg-[#f8fafc] lg:hidden"
             >
                 <span className="grid size-7 place-items-center rounded-full border border-[#e2e8f0]">
                     <ChevronLeft className="size-4" strokeWidth={1.8} />
                 </span>
-                Collapse Menu
+                Close Menu
             </button>
         </aside>
     );
 }
 
-function Topbar() {
+function MobileSidebar({
+    open,
+    onClose,
+}: {
+    open: boolean;
+    onClose: () => void;
+}) {
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        document.body.style.overflow = 'hidden';
+
+        return () => {
+            document.removeEventListener('keydown', handleKeyDown);
+            document.body.style.overflow = '';
+        };
+    }, [open, onClose]);
+
+    return (
+        <div
+            className={[
+                'fixed inset-0 z-50 lg:hidden',
+                open ? 'pointer-events-auto' : 'pointer-events-none',
+            ].join(' ')}
+            aria-hidden={!open}
+        >
+            <button
+                type="button"
+                aria-label="Close menu"
+                onClick={onClose}
+                className={[
+                    'absolute inset-0 bg-slate-950/40 transition-opacity',
+                    open ? 'opacity-100' : 'opacity-0',
+                ].join(' ')}
+            />
+            <div
+                className={[
+                    'absolute top-0 bottom-0 left-0 w-[min(86vw,320px)] overflow-hidden border-r border-[#e2e8f0] bg-white shadow-[0_20px_60px_rgba(15,23,42,0.24)] transition-transform duration-200 ease-out',
+                    open ? 'translate-x-0' : '-translate-x-full',
+                ].join(' ')}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Main navigation"
+            >
+                <div className="absolute top-3 right-3 z-10">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="grid size-9 place-items-center rounded-lg border border-[#e2e8f0] bg-white text-[#0f172a] shadow-sm transition hover:bg-[#f8fafc]"
+                        aria-label="Close menu"
+                    >
+                        <X className="size-5" strokeWidth={2} />
+                    </button>
+                </div>
+                <SidebarNav mobile onNavigate={onClose} />
+            </div>
+        </div>
+    );
+}
+
+function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
     return (
         <header className="dashboard-topbar">
-            <div className="flex min-w-0 flex-1 items-center gap-5">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 lg:gap-5">
                 <button
                     type="button"
-                    className="grid size-9 shrink-0 place-items-center rounded-lg text-[#0f172a] transition hover:bg-[#f1f5f9] lg:hidden xl:grid"
+                    onClick={onMenuClick}
+                    className="grid size-9 shrink-0 place-items-center rounded-lg text-[#0f172a] transition hover:bg-[#f1f5f9] lg:hidden"
                     aria-label="Open menu"
                 >
                     <Menu className="size-[22px]" strokeWidth={2} />
@@ -302,16 +388,18 @@ function Topbar() {
                 </label>
             </div>
 
-            <div className="flex shrink-0 items-center gap-5">
-                <OutletSwitcher />
+            <div className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-3 lg:gap-5">
+                <div className="hidden min-w-0 sm:block">
+                    <OutletSwitcher />
+                </div>
 
                 <Link
                     href={POSOrderController.index.url()}
                     prefetch
-                    className="flex h-[46px] items-center gap-2.5 rounded-[10px] bg-[#2563eb] px-[22px] text-[15px] font-bold text-white shadow-[0_4px_10px_rgba(37,99,235,0.25)] transition hover:bg-[#1d4ed8] active:translate-y-px"
+                    className="flex h-10 items-center gap-2 rounded-[10px] bg-[#2563eb] px-3 text-sm font-bold text-white shadow-[0_4px_10px_rgba(37,99,235,0.25)] transition hover:bg-[#1d4ed8] active:translate-y-px sm:h-[46px] sm:px-[22px] sm:text-[15px]"
                 >
                     <Plus className="size-[18px]" strokeWidth={2} />
-                    Create Order
+                    <span className="hidden sm:inline">Create Order</span>
                 </Link>
 
                 <div className="hidden h-7 w-px bg-[#e2e8f0] md:block" />
@@ -355,6 +443,8 @@ function Topbar() {
 }
 
 export default function AppSidebarLayout({ children }: AppLayoutProps) {
+    const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
     return (
         <div className="min-h-[100dvh] bg-[#f8fafc] font-sans text-[#0f172a]">
             <Link
@@ -364,8 +454,12 @@ export default function AppSidebarLayout({ children }: AppLayoutProps) {
                 Skip to content
             </Link>
             <SidebarNav />
+            <MobileSidebar
+                open={mobileSidebarOpen}
+                onClose={() => setMobileSidebarOpen(false)}
+            />
             <div className="dashboard-main-shell">
-                <Topbar />
+                <Topbar onMenuClick={() => setMobileSidebarOpen(true)} />
                 <main id="main-content" className="dashboard-main-content">
                     {children}
                 </main>
