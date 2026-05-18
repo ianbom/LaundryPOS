@@ -1,18 +1,16 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import {
     ArrowRight,
     Banknote,
     CheckCircle2,
     ClipboardList,
     Droplets,
-    Eye,
     Fan,
     MoreHorizontal,
     PackageCheck,
     Plus,
     Printer,
     QrCode,
-    RefreshCcw,
     Search,
     Send,
     ShoppingBag,
@@ -23,6 +21,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { dashboard } from '@/routes';
+import { index as ordersIndex, show as orderShow } from '@/routes/orders';
 
 type Metric = {
     label: string;
@@ -34,6 +33,7 @@ type Metric = {
 };
 
 type Status = {
+    key: string;
     label: string;
     value: string;
     icon: LucideIcon;
@@ -49,166 +49,81 @@ type BadgeTone =
     | 'washing'
     | 'cancelled'
     | 'completed'
-    | 'ironing';
+    | 'ironing'
+    | 'waiting'
+    | 'drying'
+    | 'unpaid'
+    | 'qris'
+    | 'cash';
 
-type Order = {
-    invoice: string;
-    customer: string;
-    phone: string;
-    service: string;
-    quantity: string;
-    total: string;
-    method: string;
-    paymentStatus: string;
-    paymentTone: BadgeTone;
-    laundryStatus: string;
-    laundryTone: BadgeTone;
-    createdAt: string;
+type DashboardMetrics = {
+    revenueToday: number;
+    ordersToday: number;
+    pendingPaymentOrders: number;
+    processingOrders: number;
+    readyToPickupOrders: number;
+    completedOrdersToday: number;
+    cashRevenueToday: number;
+    qrisRevenueToday: number;
 };
 
-const metrics: Metric[] = [
+type RevenuePoint = {
+    date: string;
+    total: number;
+};
+
+type RecentOrder = {
+    id: number;
+    invoice_number: string;
+    order_date: string | null;
+    grand_total: string;
+    payment_status: string;
+    order_status: string;
+    customer?: { name: string; phone: string | null } | null;
+    active_payment?: {
+        method: string;
+        status: string;
+        paid_at: string | null;
+    } | null;
+    items?: Array<{
+        service_name: string;
+        charged_quantity: string | number;
+        unit: string;
+    }>;
+};
+
+type DashboardProps = {
+    metrics: DashboardMetrics;
+    revenueChart: RevenuePoint[];
+    orderStatusDistribution: Record<string, number>;
+    paymentMethodDistribution: Record<string, number>;
+    recentOrders: RecentOrder[];
+};
+
+const statusBlueprints: Omit<Status, 'value'>[] = [
     {
-        label: "Today's Revenue",
-        value: 'Rp 8.450.000',
-        helper: '+8.2% from yesterday',
-        icon: Banknote,
-        tone: 'green',
-    },
-    {
-        label: "Today's Orders",
-        value: '56',
-        helper: '+12.5% from yesterday',
-        icon: ClipboardList,
+        key: 'waiting_payment',
+        label: 'Waiting Payment',
+        icon: Plus,
         tone: 'blue',
     },
     {
-        label: 'Active Orders',
-        value: '128',
-        helper: '3 orders awaiting confirmation',
-        helperAccent: '3',
+        key: 'processing',
+        label: 'Processing',
         icon: WashingMachine,
-        tone: 'violet',
+        tone: 'blue',
     },
+    { key: 'washing', label: 'Washing', icon: Droplets, tone: 'cyan' },
+    { key: 'drying', label: 'Drying', icon: Fan, tone: 'amber' },
+    { key: 'ironing', label: 'Ironing', icon: PackageCheck, tone: 'violet' },
     {
+        key: 'ready_to_pickup',
         label: 'Ready for Pickup',
-        value: '42',
-        helper: '+5 from yesterday',
         icon: ShoppingBag,
         tone: 'cyan',
     },
-    {
-        label: 'Pending Payments',
-        value: 'Rp 2.125.000',
-        helper: '12 orders pending payment',
-        helperAccent: '12',
-        icon: Wallet,
-        tone: 'amber',
-    },
-    {
-        label: 'Completed Orders',
-        value: '74',
-        helper: '+9.3% from yesterday',
-        icon: CheckCircle2,
-        tone: 'green',
-    },
-];
-
-const statusItems: Status[] = [
-    { label: 'New Order', value: '18', icon: Plus, tone: 'blue' },
-    { label: 'Processing', value: '36', icon: WashingMachine, tone: 'blue' },
-    { label: 'Washing', value: '28', icon: Droplets, tone: 'cyan' },
-    { label: 'Drying', value: '22', icon: Fan, tone: 'amber' },
-    { label: 'Ironing', value: '16', icon: PackageCheck, tone: 'violet' },
-    { label: 'Ready for Pickup', value: '42', icon: ShoppingBag, tone: 'cyan' },
-    { label: 'Completed', value: '74', icon: CheckCircle2, tone: 'green' },
-    { label: 'Cancelled', value: '8', icon: XCircle, tone: 'red' },
-];
-
-const orders: Order[] = [
-    {
-        invoice: 'INV-2025-05010',
-        customer: 'Budi Santoso',
-        phone: '0812-3456-7890',
-        service: 'Cuci Setrika',
-        quantity: '5 Kg',
-        total: 'Rp 75.000',
-        method: 'QRIS',
-        paymentStatus: 'Paid',
-        paymentTone: 'paid',
-        laundryStatus: 'Ready for Pickup',
-        laundryTone: 'ready',
-        createdAt: '10 May 2025, 09:30',
-    },
-    {
-        invoice: 'INV-2025-05009',
-        customer: 'Siti Nurhaliza',
-        phone: '0813-2345-6789',
-        service: 'Cuci Kering',
-        quantity: '8 Kg',
-        total: 'Rp 120.000',
-        method: 'Transfer Bank',
-        paymentStatus: 'Pending',
-        paymentTone: 'pending',
-        laundryStatus: 'Processing',
-        laundryTone: 'processing',
-        createdAt: '10 May 2025, 09:15',
-    },
-    {
-        invoice: 'INV-2025-05008',
-        customer: 'Andi Pratama',
-        phone: '0812-9876-5432',
-        service: 'Cuci Setrika + Lipat',
-        quantity: '10 Kg',
-        total: 'Rp 150.000',
-        method: 'Cash',
-        paymentStatus: 'Paid',
-        paymentTone: 'paid',
-        laundryStatus: 'Washing',
-        laundryTone: 'washing',
-        createdAt: '10 May 2025, 08:45',
-    },
-    {
-        invoice: 'INV-2025-05007',
-        customer: 'Dewi Lestari',
-        phone: '0813-1111-2222',
-        service: 'Cuci Kering',
-        quantity: '6 Kg',
-        total: 'Rp 90.000',
-        method: 'QRIS',
-        paymentStatus: 'Failed',
-        paymentTone: 'failed',
-        laundryStatus: 'Cancelled',
-        laundryTone: 'cancelled',
-        createdAt: '10 May 2025, 08:20',
-    },
-    {
-        invoice: 'INV-2025-05006',
-        customer: 'Hendra Wijaya',
-        phone: '0812-2222-3333',
-        service: 'Cuci Bed Cover',
-        quantity: '1 Pcs',
-        total: 'Rp 60.000',
-        method: 'Cash',
-        paymentStatus: 'Paid',
-        paymentTone: 'paid',
-        laundryStatus: 'Completed',
-        laundryTone: 'completed',
-        createdAt: '10 May 2025, 07:50',
-    },
-    {
-        invoice: 'INV-2025-05005',
-        customer: 'Rina Kartika',
-        phone: '0813-4444-5555',
-        service: 'Cuci Setrika',
-        quantity: '4 Kg',
-        total: 'Rp 60.000',
-        method: 'Transfer Bank',
-        paymentStatus: 'Pending',
-        paymentTone: 'pending',
-        laundryStatus: 'Ironing',
-        laundryTone: 'ironing',
-        createdAt: '10 May 2025, 07:30',
-    },
+    { key: 'completed', label: 'Completed', icon: CheckCircle2, tone: 'green' },
+    { key: 'cancelled', label: 'Cancelled', icon: XCircle, tone: 'red' },
 ];
 
 const toneClasses = {
@@ -248,7 +163,121 @@ const badgeClasses: Record<BadgeTone, string> = {
     cancelled: 'bg-[#fee2e2] text-[#dc2626]',
     completed: 'bg-[#dcfce7] text-[#15803d]',
     ironing: 'bg-[#ede9fe] text-[#7c3aed]',
+    waiting: 'bg-[#dbeafe] text-[#2563eb]',
+    drying: 'bg-[#fef3c7] text-[#f59e0b]',
+    unpaid: 'bg-[#f1f5f9] text-[#475569]',
+    qris: 'bg-[#dbeafe] text-[#2563eb]',
+    cash: 'bg-[#dcfce7] text-[#16a34a]',
 };
+
+function formatCurrency(value: number | string) {
+    return new Intl.NumberFormat('id-ID', {
+        currency: 'IDR',
+        maximumFractionDigits: 0,
+        style: 'currency',
+    }).format(Number(value));
+}
+
+function formatDate(value: string | null) {
+    if (!value) {
+        return '-';
+    }
+
+    return new Intl.DateTimeFormat('id-ID', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(new Date(value));
+}
+
+function titleCase(value: string) {
+    return value
+        .replaceAll('_', ' ')
+        .replace(/\b\w/g, (match) => match.toUpperCase());
+}
+
+function badgeTone(value: string): BadgeTone {
+    if (value === 'ready_to_pickup') {
+        return 'ready';
+    }
+
+    if (value === 'waiting_payment') {
+        return 'waiting';
+    }
+
+    if (value in badgeClasses) {
+        return value as BadgeTone;
+    }
+
+    return 'pending';
+}
+
+function firstService(order: RecentOrder) {
+    const item = order.items?.[0];
+
+    if (!item) {
+        return '-';
+    }
+
+    return item.service_name;
+}
+
+function firstQuantity(order: RecentOrder) {
+    const item = order.items?.[0];
+
+    if (!item) {
+        return '-';
+    }
+
+    return `${item.charged_quantity} ${item.unit}`;
+}
+
+function metricCards(metrics: DashboardMetrics): Metric[] {
+    return [
+        {
+            label: "Today's Revenue",
+            value: formatCurrency(metrics.revenueToday),
+            helper: `${formatCurrency(metrics.cashRevenueToday)} cash`,
+            icon: Banknote,
+            tone: 'green',
+        },
+        {
+            label: "Today's Orders",
+            value: String(metrics.ordersToday),
+            helper: 'Orders created today',
+            icon: ClipboardList,
+            tone: 'blue',
+        },
+        {
+            label: 'Processing Orders',
+            value: String(metrics.processingOrders),
+            helper: 'Orders in active workflow',
+            icon: WashingMachine,
+            tone: 'violet',
+        },
+        {
+            label: 'Ready for Pickup',
+            value: String(metrics.readyToPickupOrders),
+            helper: 'Orders ready for customer',
+            icon: ShoppingBag,
+            tone: 'cyan',
+        },
+        {
+            label: 'Pending Payments',
+            value: String(metrics.pendingPaymentOrders),
+            helper: 'Orders awaiting payment',
+            helperAccent: String(metrics.pendingPaymentOrders),
+            icon: Wallet,
+            tone: 'amber',
+        },
+        {
+            label: 'Completed Today',
+            value: String(metrics.completedOrdersToday),
+            helper: `${formatCurrency(metrics.qrisRevenueToday)} QRIS`,
+            icon: CheckCircle2,
+            tone: 'green',
+        },
+    ];
+}
 
 function MetricCard({ metric }: { metric: Metric }) {
     const Icon = metric.icon;
@@ -275,17 +304,11 @@ function MetricCard({ metric }: { metric: Metric }) {
                         <>
                             <span className="text-[#f59e0b]">
                                 {metric.helperAccent}
-                            </span>
-                            {metric.helper.slice(metric.helperAccent.length)}
+                            </span>{' '}
+                            {metric.helper.replace(metric.helperAccent, '')}
                         </>
                     ) : (
-                        <>
-                            <span className="text-[#16a34a]">↑ </span>
-                            <span className="text-[#16a34a]">
-                                {metric.helper.split(' ')[0]}
-                            </span>{' '}
-                            {metric.helper.split(' ').slice(1).join(' ')}
-                        </>
+                        metric.helper
                     )}
                 </p>
             </div>
@@ -293,40 +316,18 @@ function MetricCard({ metric }: { metric: Metric }) {
     );
 }
 
-function RevenueChart() {
-    const xLabels = [
-        '21 Apr',
-        '22 Apr',
-        '23 Apr',
-        '24 Apr',
-        '25 Apr',
-        '26 Apr',
-        '27 Apr',
-        '28 Apr',
-        '29 Apr',
-        '30 Apr',
-        '1 May',
-        '2 May',
-        '3 May',
-        '4 May',
-        '5 May',
-        '6 May',
-        '7 May',
-        '8 May',
-        '9 May',
-        '10 May',
-    ];
-    const yLabels = [
-        'Rp 12M',
-        'Rp 10M',
-        'Rp 8M',
-        'Rp 6M',
-        'Rp 4M',
-        'Rp 2M',
-        'Rp 0',
-    ];
-    const points =
-        '0,171 35,108 70,132 105,82 140,100 175,34 210,100 245,78 280,108 315,98 350,76 385,104 420,122 455,130 490,78 525,82 560,100 595,78 630,34 665,66 700,78';
+function RevenueChart({ points }: { points: RevenuePoint[] }) {
+    const totals = points.map((point) => Number(point.total));
+    const maxTotal = Math.max(...totals, 1);
+    const chartPoints = points
+        .map((point, index) => {
+            const x =
+                points.length <= 1 ? 0 : (700 / (points.length - 1)) * index;
+            const y = 172 - (Number(point.total) / maxTotal) * 138;
+
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        })
+        .join(' ');
 
     return (
         <section className="dashboard-card h-[305px] p-5">
@@ -334,32 +335,16 @@ function RevenueChart() {
                 <h2 className="text-lg leading-[26px] font-bold text-[#0f172a]">
                     Revenue Overview
                 </h2>
-                <div className="flex items-center gap-3">
-                    <div className="hidden h-[34px] items-center rounded-lg border border-[#e2e8f0] bg-white p-0.5 md:flex">
-                        {['Today', '7 Days', '30 Days', 'This Month'].map(
-                            (label) => (
-                                <button
-                                    key={label}
-                                    type="button"
-                                    className={[
-                                        'h-7 rounded-[7px] px-4 text-xs font-medium transition',
-                                        label === '30 Days'
-                                            ? 'bg-[#2563eb] text-white'
-                                            : 'text-[#64748b] hover:bg-[#f8fafc]',
-                                    ].join(' ')}
-                                >
-                                    {label}
-                                </button>
-                            ),
-                        )}
-                    </div>
-                    <MoreHorizontal className="size-[18px] text-[#0f172a]" />
-                </div>
+                <span className="rounded-lg border border-[#e2e8f0] px-3 py-1 text-xs font-semibold text-[#334155]">
+                    Last 7 days
+                </span>
             </div>
             <div className="grid grid-cols-[54px_minmax(0,1fr)] gap-2">
                 <div className="grid h-[180px] content-between pt-0 text-right text-[11px] leading-none text-[#64748b]">
-                    {yLabels.map((label) => (
-                        <span key={label}>{label}</span>
+                    {[1, 0.8, 0.6, 0.4, 0.2, 0].map((ratio) => (
+                        <span key={ratio}>
+                            {formatCurrency(maxTotal * ratio)}
+                        </span>
                     ))}
                 </div>
                 <div className="relative h-[204px]">
@@ -400,17 +385,17 @@ function RevenueChart() {
                             />
                         ))}
                         <polygon
-                            points={`${points} 700,180 0,180`}
+                            points={`${chartPoints} 700,180 0,180`}
                             fill="url(#revenueArea)"
                         />
                         <polyline
-                            points={points}
+                            points={chartPoints}
                             fill="none"
                             stroke="#2563eb"
                             strokeWidth="2.2"
                             vectorEffect="non-scaling-stroke"
                         />
-                        {points.split(' ').map((point) => {
+                        {chartPoints.split(' ').map((point) => {
                             const [cx, cy] = point.split(',');
 
                             return (
@@ -427,13 +412,13 @@ function RevenueChart() {
                             );
                         })}
                     </svg>
-                    <div className="grid grid-cols-10 text-[10px] text-[#64748b]">
-                        {xLabels.map((label, index) => (
-                            <span
-                                key={label}
-                                className={index % 2 === 0 ? '' : 'text-center'}
-                            >
-                                {label}
+                    <div className="grid grid-cols-7 text-[10px] text-[#64748b]">
+                        {points.map((point) => (
+                            <span key={point.date} className="truncate">
+                                {new Intl.DateTimeFormat('id-ID', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                }).format(new Date(point.date))}
                             </span>
                         ))}
                     </div>
@@ -444,25 +429,39 @@ function RevenueChart() {
                     <span className="size-2.5 rounded-full bg-[#2563eb]" />
                     Revenue (IDR)
                 </span>
-                <span>Total Revenue: Rp 156.750.000</span>
+                <span>
+                    Total Revenue:{' '}
+                    {formatCurrency(
+                        totals.reduce((total, value) => total + value, 0),
+                    )}
+                </span>
             </div>
         </section>
     );
 }
 
-function StatusOverview() {
+function StatusOverview({
+    distribution,
+}: {
+    distribution: Record<string, number>;
+}) {
+    const statuses = statusBlueprints.map((status) => ({
+        ...status,
+        value: String(distribution[status.key] ?? 0),
+    }));
+
     return (
         <section className="dashboard-card h-[305px] p-[22px]">
             <h2 className="mb-5 text-lg leading-[26px] font-bold text-[#0f172a]">
                 Laundry Status Overview
             </h2>
             <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-                {statusItems.map((status) => {
+                {statuses.map((status) => {
                     const Icon = status.icon;
 
                     return (
                         <article
-                            key={status.label}
+                            key={status.key}
                             className={[
                                 'flex h-[88px] items-center gap-3 rounded-xl border p-4',
                                 toneClasses[status.tone].status,
@@ -497,12 +496,22 @@ function StatusOverview() {
 
 function QuickActions() {
     const actions = [
-        { label: 'Create New Order', icon: Plus, primary: true },
-        { label: 'Search Order', icon: Search },
-        { label: 'Add Customer', icon: UserPlus },
-        { label: 'Generate QRIS', icon: QrCode },
-        { label: 'Print Invoice', icon: Printer },
-        { label: 'Send WhatsApp Reminder', icon: Send, whatsapp: true },
+        {
+            label: 'Create New Order',
+            icon: Plus,
+            href: '/pos/orders/create',
+            primary: true,
+        },
+        { label: 'Search Order', icon: Search, href: ordersIndex() },
+        { label: 'Add Customer', icon: UserPlus, href: '/customers' },
+        { label: 'Generate QRIS', icon: QrCode, href: ordersIndex() },
+        { label: 'Print Invoice', icon: Printer, href: ordersIndex() },
+        {
+            label: 'Send WhatsApp Reminder',
+            icon: Send,
+            href: ordersIndex(),
+            whatsapp: true,
+        },
     ];
 
     return (
@@ -515,9 +524,9 @@ function QuickActions() {
                     const Icon = action.icon;
 
                     return (
-                        <button
+                        <Link
                             key={action.label}
-                            type="button"
+                            href={action.href}
                             className={[
                                 'flex h-[46px] items-center justify-center gap-2.5 rounded-lg border border-[#cbd5e1] bg-white px-3 text-[13px] font-medium text-[#334155] transition hover:border-[#94a3b8] hover:bg-[#f8fafc] active:translate-y-px',
                                 action.primary
@@ -535,7 +544,7 @@ function QuickActions() {
                                 strokeWidth={2}
                             />
                             {action.label}
-                        </button>
+                        </Link>
                     );
                 })}
             </div>
@@ -556,20 +565,20 @@ function Badge({ tone, children }: { tone: BadgeTone; children: string }) {
     );
 }
 
-function RecentOrders() {
+function RecentOrders({ orders }: { orders: RecentOrder[] }) {
     return (
         <section className="dashboard-card overflow-visible">
             <div className="flex items-center justify-between px-[26px] pt-[18px] pb-2.5">
                 <h2 className="text-lg leading-[26px] font-bold text-[#0f172a]">
                     Recent Orders
                 </h2>
-                <button
-                    type="button"
+                <Link
+                    href={ordersIndex()}
                     className="flex h-[34px] items-center gap-2 rounded-lg border border-[#e2e8f0] bg-white px-3.5 text-xs font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
                 >
                     View All Orders
                     <ArrowRight className="size-3.5" strokeWidth={2} />
-                </button>
+                </Link>
             </div>
             <div className="dashboard-table-scroll px-3">
                 <table className="w-full border-collapse text-left">
@@ -596,149 +605,100 @@ function RecentOrders() {
                         </tr>
                     </thead>
                     <tbody>
-                        {orders.map((order, index) => (
+                        {orders.map((order) => (
                             <tr
-                                key={order.invoice}
+                                key={order.id}
                                 className="relative h-[43px] border-b border-[#e2e8f0] bg-white transition hover:bg-[#f8fafc]"
                             >
                                 <td className="px-3.5 py-2">
-                                    <button
-                                        type="button"
+                                    <Link
+                                        href={orderShow(order.id)}
                                         className="text-[13px] leading-[18px] font-semibold text-[#2563eb] hover:text-[#1d4ed8] hover:underline"
                                     >
-                                        {order.invoice}
-                                    </button>
+                                        {order.invoice_number}
+                                    </Link>
                                 </td>
                                 <td className="px-3.5 py-2">
                                     <p className="text-[13px] leading-[18px] font-medium text-[#0f172a]">
-                                        {order.customer}
+                                        {order.customer?.name ?? '-'}
                                     </p>
                                     <p className="text-xs leading-4 text-[#64748b]">
-                                        {order.phone}
+                                        {order.customer?.phone ?? '-'}
                                     </p>
                                 </td>
                                 <td className="px-3.5 py-2">
                                     <p className="text-[13px] leading-[18px] font-medium text-[#0f172a]">
-                                        {order.service}
+                                        {firstService(order)}
                                     </p>
                                     <p className="text-xs leading-4 text-[#64748b]">
-                                        {order.quantity}
+                                        {firstQuantity(order)}
                                     </p>
                                 </td>
                                 <td className="px-3.5 py-2 text-[13px] leading-[18px] font-medium text-[#0f172a]">
-                                    {order.total}
+                                    {formatCurrency(order.grand_total)}
                                 </td>
                                 <td className="px-3.5 py-2 text-[13px] leading-[18px] font-medium text-[#0f172a]">
-                                    {order.method}
+                                    {titleCase(
+                                        order.active_payment?.method ?? '-',
+                                    )}
                                 </td>
                                 <td className="px-3.5 py-2">
-                                    <Badge tone={order.paymentTone}>
-                                        {order.paymentStatus}
+                                    <Badge
+                                        tone={badgeTone(order.payment_status)}
+                                    >
+                                        {titleCase(order.payment_status)}
                                     </Badge>
                                 </td>
                                 <td className="px-3.5 py-2">
-                                    <Badge tone={order.laundryTone}>
-                                        {order.laundryStatus}
+                                    <Badge tone={badgeTone(order.order_status)}>
+                                        {titleCase(order.order_status)}
                                     </Badge>
                                 </td>
                                 <td className="px-3.5 py-2 text-[13px] leading-[18px] font-medium text-[#0f172a]">
-                                    {order.createdAt}
+                                    {formatDate(order.order_date)}
                                 </td>
                                 <td className="relative px-3.5 py-2">
-                                    <button
-                                        type="button"
+                                    <Link
+                                        href={orderShow(order.id)}
                                         className="grid size-7 place-items-center rounded-md border border-[#e2e8f0] bg-white text-[#334155] transition hover:bg-[#f8fafc]"
-                                        aria-label={`Open actions for ${order.invoice}`}
+                                        aria-label={`Open ${order.invoice_number}`}
                                     >
                                         <MoreHorizontal
                                             className="size-4"
                                             strokeWidth={2}
                                         />
-                                    </button>
-                                    {index === orders.length - 1 && (
-                                        <div className="absolute right-3 bottom-7 z-10 w-[170px] rounded-[10px] border border-[#e2e8f0] bg-white p-2 shadow-[0_12px_28px_rgba(15,23,42,0.14)]">
-                                            {[
-                                                {
-                                                    label: 'View Detail',
-                                                    icon: Eye,
-                                                },
-                                                {
-                                                    label: 'Update Status',
-                                                    icon: RefreshCcw,
-                                                },
-                                                {
-                                                    label: 'Print Invoice',
-                                                    icon: Printer,
-                                                },
-                                                {
-                                                    label: 'Send WhatsApp',
-                                                    icon: Send,
-                                                },
-                                                {
-                                                    label: 'Cancel Order',
-                                                    icon: XCircle,
-                                                    danger: true,
-                                                },
-                                            ].map((item) => {
-                                                const Icon = item.icon;
-
-                                                return (
-                                                    <button
-                                                        key={item.label}
-                                                        type="button"
-                                                        className={[
-                                                            'flex h-9 w-full items-center gap-2.5 rounded-[7px] px-2.5 text-[13px] font-medium transition',
-                                                            item.danger
-                                                                ? 'text-[#ef4444] hover:bg-[#fef2f2]'
-                                                                : 'text-[#334155] hover:bg-[#f8fafc]',
-                                                        ].join(' ')}
-                                                    >
-                                                        <Icon
-                                                            className="size-4"
-                                                            strokeWidth={1.8}
-                                                        />
-                                                        {item.label}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                                    </Link>
                                 </td>
                             </tr>
                         ))}
+                        {orders.length === 0 && (
+                            <tr>
+                                <td
+                                    colSpan={9}
+                                    className="px-3.5 py-8 text-center text-sm text-[#64748b]"
+                                >
+                                    No recent orders yet.
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </table>
             </div>
             <div className="flex h-11 items-center justify-between px-[26px]">
                 <p className="text-xs text-[#64748b]">
-                    Showing 1 to 6 of 6 orders
+                    Showing {orders.length} recent orders
                 </p>
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        className="grid size-7 place-items-center rounded-md border border-[#e2e8f0] text-[#94a3b8]"
-                    >
-                        ‹
-                    </button>
-                    <button
-                        type="button"
-                        className="grid size-7 place-items-center rounded-md bg-[#2563eb] text-xs font-bold text-white"
-                    >
-                        1
-                    </button>
-                    <button
-                        type="button"
-                        className="grid size-7 place-items-center rounded-md border border-[#e2e8f0] text-[#94a3b8]"
-                    >
-                        ›
-                    </button>
-                </div>
             </div>
         </section>
     );
 }
 
-export default function Dashboard() {
+export default function Dashboard({
+    metrics,
+    revenueChart,
+    orderStatusDistribution,
+    recentOrders,
+}: DashboardProps) {
     return (
         <>
             <Head title="Admin Dashboard" />
@@ -754,18 +714,18 @@ export default function Dashboard() {
                 </header>
 
                 <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-                    {metrics.map((metric) => (
+                    {metricCards(metrics).map((metric) => (
                         <MetricCard key={metric.label} metric={metric} />
                     ))}
                 </section>
 
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.08fr_1fr]">
-                    <RevenueChart />
-                    <StatusOverview />
+                    <RevenueChart points={revenueChart} />
+                    <StatusOverview distribution={orderStatusDistribution} />
                 </div>
 
                 <QuickActions />
-                <RecentOrders />
+                <RecentOrders orders={recentOrders} />
             </div>
         </>
     );

@@ -61,6 +61,11 @@ class OutletAccess
         return self::hasPermission($user, $outletId, 'can_manage_orders');
     }
 
+    public static function canManagePayments(User $user, int $outletId): bool
+    {
+        return self::hasPermission($user, $outletId, 'can_manage_payments');
+    }
+
     public static function canManageServices(User $user, int $outletId): bool
     {
         return self::hasPermission($user, $outletId, 'can_manage_services');

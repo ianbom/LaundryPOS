@@ -1,21 +1,35 @@
 import { Link } from '@inertiajs/react';
 import {
-    BookOpen,
+    BarChart3,
     Building2,
+    ClipboardList,
     Copy,
     CreditCard,
-    FolderGit2,
+    FileText,
+    History,
     LayoutGrid,
     MessageSquareText,
-    Settings,
+    PlusCircle,
+    ReceiptText,
+    ShieldCheck,
     Shirt,
     Store,
     Tags,
     UserCog,
     UsersRound,
 } from 'lucide-react';
+import ActivityLogController from '@/actions/App/Http/Controllers/ActivityLogController';
+import CustomerController from '@/actions/App/Http/Controllers/CustomerController';
+import DashboardController from '@/actions/App/Http/Controllers/DashboardController';
+import OrderController from '@/actions/App/Http/Controllers/OrderController';
+import OutletController from '@/actions/App/Http/Controllers/OutletController';
+import POSOrderController from '@/actions/App/Http/Controllers/POSOrderController';
+import ReportController from '@/actions/App/Http/Controllers/ReportController';
+import ServiceCategoryController from '@/actions/App/Http/Controllers/ServiceCategoryController';
+import ServiceController from '@/actions/App/Http/Controllers/ServiceController';
+import ServiceCopyController from '@/actions/App/Http/Controllers/ServiceCopyController';
+import UserController from '@/actions/App/Http/Controllers/UserController';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -27,54 +41,84 @@ import {
     SidebarMenuButton,
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
 import { edit as appearanceEdit } from '@/routes/appearance';
-import { index as customersIndex } from '@/routes/customers';
-import { index as outletsIndex } from '@/routes/outlets';
-import { index as serviceCategoriesIndex } from '@/routes/service-categories';
-import { index as servicesIndex } from '@/routes/services';
-import { create as serviceCopyCreate } from '@/routes/services/copy';
+import { edit as profileEdit } from '@/routes/profile';
+import { edit as securityEdit } from '@/routes/security';
 import { edit as businessSettingsEdit } from '@/routes/settings/business';
 import { edit as integrationsSettingsEdit } from '@/routes/settings/integrations';
 import { index as whatsappTemplatesIndex } from '@/routes/settings/whatsapp-templates';
-import { index as usersIndex } from '@/routes/users';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
     {
         title: 'Dashboard',
-        href: dashboard.url(),
+        href: DashboardController.index.url(),
         icon: LayoutGrid,
     },
     {
+        title: 'Create Order',
+        href: POSOrderController.index.url(),
+        icon: PlusCircle,
+    },
+    {
+        title: 'Orders',
+        href: OrderController.index.url(),
+        icon: ClipboardList,
+    },
+    {
         title: 'Outlets',
-        href: outletsIndex.url(),
+        href: OutletController.index.url(),
         icon: Building2,
     },
     {
         title: 'Users',
-        href: usersIndex.url(),
+        href: UserController.index.url(),
         icon: UserCog,
     },
     {
         title: 'Customers',
-        href: customersIndex.url(),
+        href: CustomerController.index.url(),
         icon: UsersRound,
     },
     {
         title: 'Service Categories',
-        href: serviceCategoriesIndex.url(),
+        href: ServiceCategoryController.index.url(),
         icon: Tags,
     },
     {
         title: 'Services',
-        href: servicesIndex.url(),
+        href: ServiceController.index.url(),
         icon: Shirt,
     },
     {
         title: 'Copy Services',
-        href: serviceCopyCreate.url(),
+        href: ServiceCopyController.create.url(),
         icon: Copy,
+    },
+    {
+        title: 'Transaction Report',
+        href: ReportController.transactions.url(),
+        icon: ReceiptText,
+    },
+    {
+        title: 'Revenue Report',
+        href: ReportController.revenue.url(),
+        icon: BarChart3,
+    },
+    {
+        title: 'Service Report',
+        href: ReportController.services.url(),
+        icon: FileText,
+    },
+    {
+        title: 'Customer Report',
+        href: ReportController.customers.url(),
+        icon: UsersRound,
+    },
+    {
+        title: 'Activity Logs',
+        href: ActivityLogController.index.url(),
+        icon: History,
     },
     {
         title: 'Business Settings',
@@ -94,20 +138,17 @@ const mainNavItems: NavItem[] = [
     {
         title: 'Appearance',
         href: appearanceEdit.url(),
-        icon: Settings,
-    },
-];
-
-const footerNavItems: NavItem[] = [
-    {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
+        icon: ShieldCheck,
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
+        title: 'Profile',
+        href: profileEdit.url(),
+        icon: UserCog,
+    },
+    {
+        title: 'Security',
+        href: securityEdit.url(),
+        icon: ShieldCheck,
     },
 ];
 
@@ -118,7 +159,10 @@ export function AppSidebar() {
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard.url()} prefetch>
+                            <Link
+                                href={DashboardController.index.url()}
+                                prefetch
+                            >
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -131,7 +175,6 @@ export function AppSidebar() {
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>
