@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Outlet;
+use App\Support\OutletAccess;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -35,12 +37,24 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+        $currentOutletId = $user ? OutletAccess::activeOutletId($user) : null;
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
             ],
+            'currentOutlet' => $currentOutletId
+                ? Outlet::query()->find($currentOutletId, ['id', 'name', 'code', 'is_main', 'is_active'])
+                : null,
+            'outletOptions' => $user
+                ? Outlet::query()
+                    ->whereIn('id', OutletAccess::accessibleOutletIds($user))
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code', 'is_main', 'is_active'])
+                : [],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

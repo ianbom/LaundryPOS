@@ -179,7 +179,6 @@
 
     .dashboard-main-shell {
         min-height: 100dvh;
-        overflow-x: clip;
         padding-left: var(--sidebar-width-dashboard);
     }
 
@@ -198,7 +197,6 @@
     }
 
     .dashboard-main-content {
-        overflow-x: clip;
         padding: 18px 24px 28px;
     }
 
@@ -210,19 +208,11 @@
     }
 
     .dashboard-table-scroll {
-        overflow-x: clip;
+        overflow-x: auto;
     }
 
     .dashboard-table-scroll table {
-        width: 100%;
-        min-width: 0;
-        table-layout: fixed;
-    }
-
-    .dashboard-table-scroll th,
-    .dashboard-table-scroll td {
-        overflow: hidden;
-        text-overflow: ellipsis;
+        min-width: 1340px;
     }
 
     .dashboard-page-scale {

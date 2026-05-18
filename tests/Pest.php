@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Outlet;
+use App\Models\User;
+use App\Models\UserOutlet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -47,4 +50,37 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+function ownerUser(): User
+{
+    return User::query()->create([
+        'name' => 'Owner',
+        'email' => 'owner@example.com',
+        'password' => 'password',
+        'global_role' => 'owner',
+        'is_active' => true,
+    ]);
+}
+
+function staffUserWithServiceAccess(Outlet $outlet): User
+{
+    $user = User::query()->create([
+        'name' => 'Admin',
+        'email' => 'admin@example.com',
+        'password' => 'password',
+        'global_role' => 'admin',
+        'is_active' => true,
+    ]);
+
+    UserOutlet::query()->create([
+        'user_id' => $user->id,
+        'outlet_id' => $outlet->id,
+        'role' => 'admin',
+        'can_manage_services' => true,
+        'is_primary' => true,
+        'is_active' => true,
+    ]);
+
+    return $user;
 }

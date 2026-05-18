@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import type { InertiaLinkProps } from '@inertiajs/react';
 import {
     Bell,
     Building2,
@@ -36,12 +37,24 @@ import {
     WashingMachine,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import OutletSwitcher from '@/components/outlet-switcher';
+import { dashboard } from '@/routes';
+import { edit as appearanceEdit } from '@/routes/appearance';
+import { index as customersIndex } from '@/routes/customers';
+import { index as outletsIndex } from '@/routes/outlets';
+import { index as serviceCategoriesIndex } from '@/routes/service-categories';
+import { index as servicesIndex } from '@/routes/services';
+import { edit as businessSettingsEdit } from '@/routes/settings/business';
+import { edit as integrationsSettingsEdit } from '@/routes/settings/integrations';
+import { index as whatsappTemplatesIndex } from '@/routes/settings/whatsapp-templates';
+import { index as usersIndex } from '@/routes/users';
 import type { AppLayoutProps } from '@/types';
 
 type NavGroup = {
     label: string;
     items: {
         title: string;
+        href?: NonNullable<InertiaLinkProps['href']>;
         icon: LucideIcon;
         active?: boolean;
     }[];
@@ -51,10 +64,15 @@ const navGroups: NavGroup[] = [
     {
         label: 'Main Menu',
         items: [
-            { title: 'Dashboard', icon: LayoutDashboard, active: true },
+            {
+                title: 'Dashboard',
+                href: dashboard.url(),
+                icon: LayoutDashboard,
+                active: true,
+            },
             { title: 'Create Order', icon: Plus },
             { title: 'Orders', icon: ClipboardList },
-            { title: 'Customers', icon: Users },
+            { title: 'Customers', href: customersIndex.url(), icon: Users },
         ],
     },
     {
@@ -71,14 +89,26 @@ const navGroups: NavGroup[] = [
     {
         label: 'Management',
         items: [
-            { title: 'Services', icon: Shirt },
-            { title: 'Service Categories', icon: ListChecks },
+            { title: 'Services', href: servicesIndex.url(), icon: Shirt },
+            {
+                title: 'Service Categories',
+                href: serviceCategoriesIndex.url(),
+                icon: ListChecks,
+            },
             { title: 'Price List', icon: Tags },
             { title: 'Discounts / Promotions', icon: Percent },
-            { title: 'Outlets / Branches', icon: Building2 },
-            { title: 'Staff / Users', icon: UserCog },
+            {
+                title: 'Outlets / Branches',
+                href: outletsIndex.url(),
+                icon: Building2,
+            },
+            { title: 'Staff / Users', href: usersIndex.url(), icon: UserCog },
             { title: 'Roles & Permissions', icon: ShieldCheck },
-            { title: 'Customers Database', icon: Users },
+            {
+                title: 'Customers Database',
+                href: customersIndex.url(),
+                icon: Users,
+            },
         ],
     },
     {
@@ -107,12 +137,28 @@ const navGroups: NavGroup[] = [
     {
         label: 'System',
         items: [
-            { title: 'WhatsApp Templates', icon: MessageCircle },
+            {
+                title: 'WhatsApp Templates',
+                href: whatsappTemplatesIndex.url(),
+                icon: MessageCircle,
+            },
             { title: 'Invoice Settings', icon: Printer },
-            { title: 'Payment Gateway Settings', icon: CreditCard },
+            {
+                title: 'Payment Gateway Settings',
+                href: integrationsSettingsEdit.url(),
+                icon: CreditCard,
+            },
             { title: 'Laundry Status Settings', icon: WashingMachine },
-            { title: 'Business Profile', icon: Store },
-            { title: 'General Settings', icon: Settings },
+            {
+                title: 'Business Profile',
+                href: businessSettingsEdit.url(),
+                icon: Store,
+            },
+            {
+                title: 'General Settings',
+                href: appearanceEdit.url(),
+                icon: Settings,
+            },
         ],
     },
     {
@@ -171,9 +217,10 @@ function SidebarNav() {
                                 const Icon = item.icon;
 
                                 return (
-                                    <button
+                                    <Link
                                         key={item.title}
-                                        type="button"
+                                        href={item.href ?? dashboard.url()}
+                                        prefetch={Boolean(item.href)}
                                         className={[
                                             'flex h-6 items-center gap-2 rounded-md px-2.5 text-[13px] leading-[18px] transition',
                                             item.active
@@ -193,7 +240,7 @@ function SidebarNav() {
                                         <span className="truncate">
                                             {item.title}
                                         </span>
-                                    </button>
+                                    </Link>
                                 );
                             })}
                         </div>
@@ -243,16 +290,7 @@ function Topbar() {
             </div>
 
             <div className="flex shrink-0 items-center gap-5">
-                <button
-                    type="button"
-                    className="hidden h-11 min-w-[210px] items-center justify-between rounded-[10px] border border-[#e2e8f0] bg-white px-3 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc] md:flex"
-                >
-                    <span className="flex items-center gap-2">
-                        <Store className="size-[18px]" strokeWidth={1.8} />
-                        Central Surabaya
-                    </span>
-                    <ChevronDown className="size-4" strokeWidth={1.8} />
-                </button>
+                <OutletSwitcher />
 
                 <button
                     type="button"
